@@ -1,0 +1,669 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  
+  <title>🌸 PookieBoo 🌸</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Chewy&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(to top, #ffe6f0, #f4d5e5);
+      font-family: 'Fredoka One', cursive, sans-serif;
+    }
+
+    canvas {
+      display: block;
+      margin: 50px auto;
+      border: 2px solid #ffb6c1;
+      border-radius: 12px;
+      box-shadow: 0 8px 16px rgba(255, 182, 193, 0.4);
+      background: linear-gradient(to bottom, #d6f0ff 70%, #f0fff0 100%);
+    }
+  </style>
+  
+
+</head>
+<body>
+  <div id="startScreen" style="
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, #fff0f5, #ffe4f0);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Fredoka One', cursive;
+  z-index: 10;
+">
+
+  <h1 style="font-size: 48px; color: #ff69b4;">🌸 Meet Pookie Boo! 🌸</h1>
+  <p style="font-size: 20px; max-width: 500px; text-align: center; color: #333;">
+    Pookie Boo is a tiny explorer finding her way to meet her long distance Wookie Boo 💖. Help her hop past spooky obstacles and collect her Wookie Boo's letter to unlock her cutest powers of all time!💗
+  </p>
+  <button onclick="startGame()" style="
+    margin-top: 30px;
+    padding: 12px 24px;
+    font-size: 24px;
+    background-color: #ffb6c1;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: 'Chewy', cursive;
+    box-shadow: 0 4px 8px rgba(255,182,193,0.4);
+  ">
+    ✨ Start Adventure ✨
+  </button>
+</div>
+<div id="countdown" style="
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,240,245, 0.9);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 72px;
+  font-family: 'Fredoka One', cursive;
+  color: #ff69b4;
+  z-index: 9;
+">
+  <span id="countdownNumber"></span>
+</div>
+
+
+  <canvas id="gameCanvas" width="800" height="200"></canvas>
+
+  <!-- Mobile jump button -->
+<button id="jumpBtn" style="
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 20px;
+  border-radius: 50%;
+  background: pink;
+  border: none;
+  font-size: 24px;
+  z-index: 1000;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  display: none;
+">
+  ⬆️
+</button>
+
+
+  <script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  let paused = false;
+  let highScore = parseInt(localStorage.getItem('pookieHighScore')) || 0;    
+
+  let score = 0;
+  let gameOver = false;
+  let obstacleSpeed = 10;
+  let candiesCollected = 0;
+  let isInvincible = false;
+  let invincibilityTimer = 0;
+  let obstacleCooldown = 0;
+  const obstacleInterval = 60;
+  const obstacleSpeedIncrement = 1;
+  const obstacleMaxSpeed = 15;
+  const obstacleMinSpeed = 5;
+  const obstacleSpawnRate = 60;
+  const obstacleMaxCount = 5;
+  const obstacleMinCount = 1;
+  const obstacleMaxWidth = 50;
+  const obstacleMinWidth = 20;
+  const obstacleMaxHeight = 50;
+  const obstacleMinHeight = 20;
+  const obstacleMaxY = canvas.height - obstacleMinHeight - 20;
+  const obstacleMinY = 20;
+  const obstacleMaxX = canvas.width - obstacleMinWidth - 20;
+  const obstacleMinX = 20;
+  const obstacleMaxEmoji = 6;
+  const obstacleMinEmoji = 1;
+  let isDay = true;
+let timeCounter = 0;
+let backgroundAlpha = 0; // Controls the fade effect
+let transitioning = false;
+let transitionAngle = 0;
+let transitionRadius = 0;
+let isTransitioningToNight = false;
+
+const timeCycleDuration = 1800; // ~30 seconds at 60 FPS
+
+let isNight = false;
+let dayNightTimer = 0;
+const dayNightCycleLength = 600; // Adjust duration
+const backgroundOverlay = {
+  opacity: 0,
+  direction: 1 // 1 for night, -1 for day
+};
+
+const nightcap = new Image();
+nightcap.src = 'cuteboonighcap.png'; // Add your cute nightcap image in the same folder
+
+
+  const boo = {
+    x: 50,
+    y: 150,
+    width: 30,
+    height: 30,
+    vy: 0,
+    gravity: 1,
+    jumpPower: -16,
+    isJumping: false
+  };
+
+  const booImage = new Image();
+  booImage.src = 'cuteboopic.png';
+
+  const monsterEmojis = ['👾', '😈', '💀', '🦇', '🎃', '👻'];
+  const obstacles = [];
+  const powerups = [];
+
+  
+
+  const clouds = [
+    { x: 100, y: 30 },       
+    { x: 300, y: 50 },
+    { x: 600, y: 25 }
+  ];
+
+  const confettiParticles = [];
+  let showConfetti = false;
+  let confettiTimer = 0;
+
+ function startGame() {
+  document.getElementById('startScreen').style.display = 'none';
+  const countdownEl = document.getElementById('countdown');
+  const countdownNumEl = document.getElementById('countdownNumber');
+  
+  countdownEl.style.display = 'flex';
+  
+  let count = 3;
+  countdownNumEl.textContent = count;
+
+  const countdownInterval = setInterval(() => {
+    count--;
+    if (count > 0) {
+      countdownNumEl.textContent = count;
+    } else if (count === 0) {
+      countdownNumEl.textContent = 'GO!';
+    } else {
+      clearInterval(countdownInterval);
+      countdownEl.style.display = 'none';
+      draw(); // 🎮 Start the game loop here!
+    }
+  }, 1000); // every 1 second
+}
+
+
+
+  function spawnConfetti() {
+    for (let i = 0; i < 50; i++) {
+      confettiParticles.push({
+        x: canvas.width / 2,
+        y: 100,
+        vx: (Math.random() - 0.5) * 6,
+        vy: Math.random() * -5,
+        color: `hsl(${Math.random() * 360}, 100%, 70%)`,
+        size: Math.random() * 4 + 2,
+        life: 60 + Math.random() * 20
+      });
+    }
+    showConfetti = true;
+    confettiTimer = 60;
+  }
+
+  function drawConfetti() {
+    confettiParticles.forEach((p, index) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.1;
+      p.life--;
+
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+
+      if (p.life <= 0) confettiParticles.splice(index, 1);
+    });
+
+    if (confettiTimer > 0) confettiTimer--;
+    else showConfetti = false;
+  }
+
+  function createObstacle() {
+    return {
+      x: canvas.width + Math.random() * 150,
+      y: 150,
+      width: 30,
+      height: 30,
+      emoji: monsterEmojis[Math.floor(Math.random() * monsterEmojis.length)]
+    };
+  }
+
+  function createPowerup() {
+    const types = ['💌','💖'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    return {
+      x: canvas.width + Math.random() * 300,
+      y: type === '💌' ? 150 : 0, 
+      baseY: type === '💌' ? 150 : 0,
+      floatTime: 0,
+      width: 30,
+      height: 30,
+      emoji: type,
+      type: type,
+      speed: type === '💌' ? obstacleSpeed : 2 // 💌 moves with obstacle speed
+    };
+  }
+
+  function createReward() {
+    return {
+      x: canvas.width / 2,
+      y: 0,
+      width: 30,
+      height: 30,
+      emoji: '🎁',
+      type: 'reward',
+      speed: 2
+    };
+  }   
+
+  function drawBoo() {
+  if (booImage.complete && booImage.naturalWidth > 0) {
+    ctx.drawImage(booImage, boo.x - 5, boo.y - 10, 40, 40);
+    
+    // Draw the nightcap if it's night and image is loaded
+    if (isNight && nightcap.complete && nightcap.naturalWidth > 0) {
+      ctx.drawImage(nightcap, boo.x + 5, boo.y - 25, 20, 20); // Adjust position as needed
+    }
+
+  } else {
+    ctx.fillStyle = 'green';
+    ctx.fillRect(boo.x, boo.y, boo.width, boo.height);
+  }
+}
+
+
+  function drawObstacles() {
+    ctx.font = '30px "Fredoka One"';
+    obstacles.forEach(ob => {
+      ctx.fillText(ob.emoji, ob.x, ob.y + ob.height);
+    });
+  }
+
+  function drawPowerups() {
+    ctx.font = '24px "Fredoka One"';
+    powerups.forEach(pw => {
+      ctx.fillText(pw.emoji, pw.x, pw.y + pw.height);
+    });
+    powerups.forEach(pw => {
+      ctx.fillText(pw.emoji, pw.x, pw.y + pw.height);
+    });
+  }
+
+  function drawScore() {
+    ctx.fillStyle = '#333';
+    ctx.font = '16px "Fredoka One"';
+    ctx.fillText(`Score: ${Math.floor(score)}`, 620, 30);
+    ctx.fillText(`💌: ${Math.floor(candiesCollected)}`, 620, 50);
+    ctx.fillStyle = 'black';
+    ctx.font = '16px "Chewy"';
+    ctx.fillText(`High Score: ${highScore}`, 10, 30);
+
+
+    if (isInvincible) {
+      ctx.fillStyle = 'hotpink';
+      ctx.fillText(`💖 Invincible!`, 620, 70);
+    }
+  }
+
+  function drawGround() {
+    ctx.strokeStyle = '#aaa';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 180);
+    ctx.lineTo(canvas.width, 180);
+    ctx.stroke();
+
+    for (let i = 0; i < canvas.width; i += 15) {
+      ctx.fillStyle = '#ccc';
+      ctx.fillRect(i, 182, 3, 3);
+    }
+  }
+
+  function drawClouds() {
+    ctx.fillStyle = 'white';
+    clouds.forEach(cloud => {
+      ctx.beginPath();
+      ctx.arc(cloud.x, cloud.y, 15, 0, Math.PI * 2);
+      ctx.arc(cloud.x + 20, cloud.y, 20, 0, Math.PI * 2);
+      ctx.arc(cloud.x + 40, cloud.y, 15, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    clouds.forEach(cloud => {
+      cloud.x -= 0.5;
+      if (cloud.x < -50) cloud.x = canvas.width + 50;
+    });
+  }
+  function drawNightSky() {
+  // Draw stars
+  ctx.fillStyle = 'white';
+  stars.forEach(star => {
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Dark clouds
+  ctx.fillStyle = 'rgba(50, 50, 70, 0.3)';
+  clouds.forEach(cloud => {
+    ctx.beginPath();
+    ctx.arc(cloud.x, cloud.y + 10, 15, 0, Math.PI * 2);
+    ctx.arc(cloud.x + 20, cloud.y + 10, 20, 0, Math.PI * 2);
+    ctx.arc(cloud.x + 40, cloud.y + 10, 15, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+
+  function detectCollision(obj) {
+    return (
+      boo.x < obj.x + obj.width &&
+      boo.x + boo.width > obj.x &&
+      boo.y < obj.y + obj.height &&
+      boo.y + boo.height > obj.y
+    );
+  }
+
+  function update() {
+    if (boo.isJumping) {
+      boo.vy += boo.gravity;
+      boo.y += boo.vy;
+      if (boo.y >= 150) {
+        boo.y = 150;
+        boo.isJumping = false;
+        boo.vy = 0;
+      }
+    }
+
+    if (!gameOver) score += 0.05;
+
+    for (let i = 0; i < obstacles.length; i++) {
+      obstacles[i].x -= obstacleSpeed;
+      if (detectCollision(obstacles[i]) && !isInvincible) gameOver = true;
+      if (obstacles[i].x + obstacles[i].width < 0) {
+        obstacles.splice(i, 1);
+        score++;
+        obstacleSpeed += 0.05;
+        if (score % 10 === 0) powerups.push(createReward());
+        i--;
+      }
+    }
+
+    for (let i = 0; i < powerups.length; i++) {
+     if (powerups[i].type === '💌') {
+  powerups[i].x -= powerups[i].speed;
+
+  // Floating animation (sine wave)
+  powerups[i].floatTime += 0.1;
+  powerups[i].y = powerups[i].baseY + Math.sin(powerups[i].floatTime) * 3;
+} else {
+  powerups[i].y += powerups[i].speed;
+
+  // Stop falling when reaching the ground
+  if (powerups[i].y >= 150) {
+    powerups[i].y = 150;
+    powerups[i].speed = 0;
+  }
+}
+
+
+      if (detectCollision(powerups[i])) {
+        if (powerups[i].type === '💌') {
+          candiesCollected++;
+          score += 2;
+        } else if (powerups[i].type === '💖') {
+          isInvincible = true;
+          invincibilityTimer = 300;
+        } else if (powerups[i].type === 'reward') {
+          score += 5;
+          candiesCollected += 3;
+          spawnConfetti();
+        }
+        powerups.splice(i, 1);
+        i--;
+      }
+
+      if (powerups[i] && (powerups[i].y > canvas.height || powerups[i].x < -30)) {
+        powerups.splice(i, 1);
+        i--;
+      }
+    }
+
+    if (isInvincible) {
+      invincibilityTimer--;
+      if (invincibilityTimer <= 0) isInvincible = false;
+    }
+
+    if (obstacleCooldown <= 0) {
+      obstacles.push(createObstacle());
+      obstacleCooldown = 60 + Math.random() * 60;
+    } else {
+      obstacleCooldown--;
+    }
+
+    if (Math.random() < 0.005) powerups.push(createPowerup());
+    timeCounter++;
+if (timeCounter >= 2700 && !transitioning) {
+  transitioning = true;
+  transitionRadius = 0;
+  transitionAngle = 0;
+  isTransitioningToNight = isDay;
+  timeCounter = 0;
+}
+
+dayNightTimer++;
+if (dayNightTimer > dayNightCycleLength) {
+  isNight = !isNight;
+  backgroundOverlay.direction *= -1;
+  dayNightTimer = 0;
+}
+
+backgroundOverlay.opacity += 0.02 * backgroundOverlay.direction;
+backgroundOverlay.opacity = Math.max(0, Math.min(1, backgroundOverlay.opacity));
+
+
+  }
+
+function drawBackground() {
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  if (transitioning) {
+  const radiusMax = Math.sqrt(canvas.width ** 2 + canvas.height ** 2);
+  transitionRadius += 20;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(canvas.width / 2, canvas.height / 2, transitionRadius, 0, Math.PI * 2);
+  ctx.clip();
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  if (isTransitioningToNight) {
+    gradient.addColorStop(0, '#2e294e');
+    gradient.addColorStop(1, '#1b1b3a');
+  } else {
+    gradient.addColorStop(0, '#ffe6f0');
+    gradient.addColorStop(1, '#d6f0ff');
+  }
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+
+  if (transitionRadius >= radiusMax) {
+    transitioning = false;
+    isDay = !isDay;
+  }
+}
+if (!transitioning) {
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  if (isDay) {
+    gradient.addColorStop(0, '#ffe6f0');
+    gradient.addColorStop(1, '#d6f0ff');
+  } else {
+    gradient.addColorStop(0, '#2e294e');
+    gradient.addColorStop(1, '#1b1b3a');
+  }
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+
+  if (isDay) {
+    gradient.addColorStop(0, '#ffe6f0'); // light pink
+    gradient.addColorStop(1, '#d6f0ff'); // pastel blue
+  } else {
+    gradient.addColorStop(0, '#2e294e'); // deep purple
+    gradient.addColorStop(1, '#1b1b3a'); // night blue
+  }
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw Sun or Moon
+  ctx.beginPath();
+  if (isDay) {
+    ctx.fillStyle = '#fff7b1'; // Sun
+    ctx.arc(750, 50, 30, 0, Math.PI * 2);
+  } else {
+    ctx.fillStyle = '#fefefe'; // Moon
+    ctx.arc(750, 50, 25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath(); // Cute moon shadow
+    ctx.fillStyle = isDay ? '#fff7b1' : '#1b1b3a';
+    ctx.arc(740, 50, 25, 0, Math.PI * 2);
+  }
+  ctx.fill();
+
+  // Stars at night
+  if (!isDay) {
+    for (let i = 0; i < 30; i++) {
+      ctx.fillStyle = 'white';
+      ctx.fillRect(Math.random() * canvas.width, Math.random() * 80, 2, 2);
+    }
+  }
+  if (backgroundOverlay.opacity > 0) {
+  ctx.fillStyle = `rgba(0, 0, 50, ${backgroundOverlay.opacity * 0.6})`; // dark bluish overlay
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+}
+
+  function draw() {
+  drawBackground();
+  
+    drawClouds();
+    drawGround();
+    drawBoo();
+    drawObstacles();
+    drawPowerups();
+    drawScore();
+    if (showConfetti) drawConfetti();
+
+   if (gameOver) {
+
+    if(score> highScore){
+      highScore =score;
+      localStorage.setItem('pookieHighScore', highScore);
+    }
+  ctx.fillStyle = 'red';
+  ctx.font = '36px "Fredoka One"';
+  ctx.fillText(' 💔GAME OVER💔 ', 250, 100);
+  ctx.font = '20px "Chewy"';
+  ctx.fillText('Press Enter to Restart', 280, 130);
+  return;
+}
+ if(!paused){
+  update();
+ }
+    requestAnimationFrame(draw);
+  
+
+  window.addEventListener('keydown', (e) => {
+    if ((e.code === 'Space' || e.key === 'ArrowUp') && !boo.isJumping && !gameOver) {
+      boo.isJumping = true;
+      boo.vy = boo.jumpPower;
+    } else if (gameOver && e.code === 'Enter') {
+      boo.y = 150;
+      boo.vy = 0;
+      obstacles.length = 0;
+      powerups.length = 0;
+      confettiParticles.length = 0;
+      score = 0;
+      candiesCollected = 0;
+      gameOver = false;
+      obstacleSpeed = 5;
+      isInvincible = false;
+      draw();
+    }else if(e.code === 'KeyP'){
+      paused =!paused;
+    }
+  });
+
+  booImage.onload = () => {
+  
+  };
+  booImage.onerror = () => {
+    console.warn('Image failed to load. Using fallback.');
+    draw();
+  }};
+
+  // Detect if on mobile and show jump button
+function isMobileDevice() {
+  return /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+}
+// 💖 Mobile tap support
+window.addEventListener('touchstart', () => {
+  if (!boo.isJumping && !gameOver) {
+    boo.isJumping = true;
+    boo.vy = boo.jumpPower;
+  } else if (gameOver) {
+    boo.y = 150;
+    boo.vy = 0;
+    obstacles.length = 0;
+    powerups.length = 0;
+    confettiParticles.length = 0;
+    score = 0;
+    candiesCollected = 0;
+    gameOver = false;
+    obstacleSpeed = 5;
+    isInvincible = false;
+    draw();
+  }
+});
+
+if (isMobileDevice()) {
+  const jumpBtn = document.getElementById('jumpBtn');
+  jumpBtn.style.display = 'block';
+
+  jumpBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const keydownEvent = new KeyboardEvent('keydown', { key: ' ' });
+    document.dispatchEvent(keydownEvent);
+  });
+}
+
+</script>
+
+</body>
+</html>
